@@ -24,7 +24,7 @@ st.subheader("1. Tampal Data / Catatan Rawat Wabak Di Sini")
 raw_data = st.text_area(
     "Data / Maklumat Rawat Wabak:",
     height=250,
-    placeholder="Contoh:\nPenyakit: MEASLES\nDaerah: Kuala Selangor\nJenis Kluster/Wabak: HOUSEHOLD / MEASLES\nNama dan alamat fasiliti terlibat: Kampung Bukit Cherakah\nPemaklum: KLINIK KESIHATAN BUKIT CHERAKAH\nJumlah individu terdedah: 158 orang\nKadar Serangan: 2.53%\n..."
+    placeholder="Tampal teks laporan / maklumat wabak di sini..."
 )
 
 st.subheader("2. Semak & Edit Maklumat Yang Diekstrak")
@@ -40,7 +40,7 @@ def extract_field(patterns, text, default=""):
 
 # --- Ekstraksi Automatik Berdasarkan Kata Kunci Spesifik ---
 
-# 1 & 2. Penyakit & Jenis Kluster
+# 1. Penyakit & Jenis Kluster
 raw_kluster = extract_field([r"(?:Jenis Kluster/Wabak|Jenis Kluster|Kluster|Wabak)\s*[:\-]\s*(.*)", r"(?:Penyakit)\s*[:\-]\s*(.*)"], raw_data)
 
 # Membersihkan nama penyakit sahaja (buang HOUSEHOLD, KLUSTER, WABAK, dll)
@@ -51,26 +51,52 @@ clean_penyakit = re.sub(r"[\/\-\:]", "", clean_penyakit).strip()
 # Daerah
 daerah = extract_field([r"(?:Daerah|PKD)\s*[:\-]\s*(.*)"], raw_data)
 
-# 3. Lokaliti dari "Nama dan alamat fasiliti terlibat"
+# Lokaliti & Pemaklum
 lokaliti = extract_field([r"(?:Nama dan alamat fasiliti terlibat|Lokaliti|Alamat)\s*[:\-]\s*(.*)"], raw_data)
-
-# Pemaklum
 pemaklum = extract_field([r"(?:Pemaklum|Notifikasi)\s*[:\-]\s*(.*)"], raw_data)
 
-# 4. Bilangan Exposed dari "Jumlah individu terdedah"
+# Maklumat Survelan
 exposed = extract_field([r"(?:Jumlah individu terdedah|Bilangan Exposed|Exposed)\s*[:\-]\s*(.*)"], raw_data)
-
-# Kes Survelan
 pcd = extract_field([r"(?:Jumlah Kes PCD \(Confirmed\)|Jumlah Kes PCD|PCD|Confirmed)\s*[:\-]\s*(.*)"], raw_data)
 acd = extract_field([r"(?:Jumlah Kes ACD \(Suspected\)|Jumlah Kes ACD|ACD|Suspected)\s*[:\-]\s*(.*)"], raw_data)
 disampel = extract_field([r"(?:Jumlah Kes Disampel|Disampel)\s*[:\-]\s*(.*)"], raw_data)
 positif = extract_field([r"(?:Jumlah Kes Positif|Positif)\s*[:\-]\s*(.*)"], raw_data)
 negatif = extract_field([r"(?:Jumlah Kes Negatif|Negatif)\s*[:\-]\s*(.*)"], raw_data)
 pending = extract_field([r"(?:Jumlah Kes Pending|Pending)\s*[:\-]\s*(.*)"], raw_data)
-
-# 5. Attack Rate dari "Kadar Serangan"
 attack_rate = extract_field([r"(?:Kadar Serangan|Attack Rate|AR)\s*[:\-]\s*(.*)"], raw_data)
 
+# --- Syarat Baharu: Deskripsi Kluster & Status Rawatan ---
+# 1. Onset Kes Indeks
+onset_indeks = extract_field([r"(?:Onset Kes Indeks)\s*[:\-]\s*(.*)"], raw_data)
+
+# 2. Onset Kes Terakhir
+onset_terakhir = extract_field([r"(?:Onset Kes Terakhir)\s*[:\-]\s*(.*)"], raw_data)
+
+# 3. Julat Umur Kes
+umur = extract_field([r"(?:Julat Umur Kes|Julat Umur|Umur)\s*[:\-]\s*(.*)"], raw_data)
+
+# 4. Simptom Utama
+simptom = extract_field([r"(?:Simptom Utama|Simptom)\s*[:\-]\s*(.*)"], raw_data)
+
+# 5. Punca Jangkitan
+punca = extract_field([r"(?:Punca Jangkitan|Punca)\s*[:\-]\s*(.*)"], raw_data)
+
+# 6. Jenis Sampel (daripada "Jenis Sampel Diambil dan Bilangan")
+jenis_sampel = extract_field([r"(?:Jenis Sampel Diambil dan Bilangan|Jenis Sampel)\s*[:\-]\s*(.*)"], raw_data)
+
+# 7. Keputusan Sampel (jika tiada ayat keputusan sampel, letak 'pending')
+keputusan_sampel = extract_field([r"(?:Keputusan Sampel|Keputusan)\s*[:\-]\s*(.*)"], raw_data, default="Pending")
+
+# 8. Pesakit Luar
+pesakit_luar = extract_field([r"(?:Pesakit Luar)\s*[:\-]\s*(.*)"], raw_data)
+
+# 9. Wad
+wad = extract_field([r"(?:Wad)\s*[:\-]\s*(.*)"], raw_data)
+
+# 10. ICU
+icu = extract_field([r"(?:ICU)\s*[:\-]\s*(.*)"], raw_data)
+
+# --- Susunan Interface UI ---
 col1, col2 = st.columns(2)
 
 with col1:
@@ -81,7 +107,6 @@ with col1:
     val_lokaliti = st.text_area("Lokaliti (Dari 'Nama dan alamat fasiliti terlibat')", value=lokaliti)
     val_pemaklum = st.text_area("Pemaklum", value=pemaklum)
 
-with col2:
     st.markdown("### B. Maklumat Survelan")
     val_exposed = st.text_input("Bilangan Exposed (Dari 'Jumlah individu terdedah')", value=exposed)
     val_pcd = st.text_input("Jumlah Kes PCD (Confirmed)", value=pcd)
@@ -91,6 +116,21 @@ with col2:
     val_negatif = st.text_input("Jumlah Kes Negatif", value=negatif)
     val_pending = st.text_input("Jumlah Kes Pending", value=pending)
     val_ar = st.text_input("Attack Rate (Dari 'Kadar Serangan')", value=attack_rate)
+
+with col2:
+    st.markdown("### C. Deskripsi Kluster / Wabak")
+    val_onset_indeks = st.text_input("Onset Kes Indeks", value=onset_indeks)
+    val_onset_terakhir = st.text_input("Onset Kes Terakhir", value=onset_terakhir)
+    val_umur = st.text_input("Julat Umur Kes", value=umur)
+    val_simptom = st.text_input("Simptom Utama", value=simptom)
+    val_punca = st.text_area("Punca Jangkitan", value=punca)
+    val_jenis_sampel = st.text_input("Jenis Sampel (Dari 'Jenis Sampel Diambil dan Bilangan')", value=jenis_sampel)
+    val_keputusan_sampel = st.text_input("Keputusan Sampel", value=keputusan_sampel)
+
+    st.markdown("### D. Status Rawatan")
+    val_pesakit_luar = st.text_input("Pesakit Luar", value=pesakit_luar)
+    val_wad = st.text_input("Wad", value=wad)
+    val_icu = st.text_input("ICU", value=icu)
 
 # Fungsi kemaskini fail Word
 def replace_placeholders_and_fill_tables(source, placeholders, data_map):
@@ -138,12 +178,14 @@ if st.button("🚀 Jana Laporan (.docx)"):
             "<daerah>": val_daerah
         }
 
-        # Peta pengisian jadual
+        # Peta pengisian jadual (Seksyen A, B, C & D)
         data_map = {
+            # A. Maklumat Umum
             "Daerah": val_daerah,
             "Jenis Kluster/Wabak": val_kluster,
             "Lokaliti": val_lokaliti,
             "Pemaklum": val_pemaklum,
+            # B. Maklumat Survelan
             "Bilangan Exposed": val_exposed,
             "Jumlah Kes PCD (Confirmed)": val_pcd,
             "Jumlah Kes ACD (Suspected)": val_acd,
@@ -151,7 +193,19 @@ if st.button("🚀 Jana Laporan (.docx)"):
             "Jumlah Kes Positif": val_positif,
             "Jumlah Kes Negatif": val_negatif,
             "Jumlah Kes Pending": val_pending,
-            "Attack Rate": val_ar
+            "Attack Rate": val_ar,
+            # C. Deskripsi Kluster / Wabak
+            "Onset Kes Indeks": val_onset_indeks,
+            "Onset Kes Terakhir": val_onset_terakhir,
+            "Julat Umur Kes": val_umur,
+            "Simptom Utama": val_simptom,
+            "Punca Jangkitan": val_punca,
+            "Jenis Sampel": val_jenis_sampel,
+            "Keputusan Sampel": val_keputusan_sampel,
+            # D. Status Rawatan
+            "Pesakit Luar": val_pesakit_luar,
+            "Wad": val_wad,
+            "ICU": val_icu
         }
 
         doc_bytes = replace_placeholders_and_fill_tables(template_file, placeholders, data_map)
