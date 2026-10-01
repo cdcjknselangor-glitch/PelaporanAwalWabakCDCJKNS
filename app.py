@@ -65,9 +65,16 @@ pending_val = extract_field([r"(?:Jumlah Kes Pending|Pending)\s*[:\-]\s*(.*)"], 
 attack_rate = extract_field([r"(?:Kadar Serangan|Attack Rate|AR)\s*[:\-]\s*(.*)"], raw_data)
 
 # --- Peraturan 1: Markah Penilaian Risiko / Pemeriksaan Premis ---
-markah_premis = extract_field([r"(?:Markah Penilaian Risiko/Pemeriksaan Premis|Penilaian Risiko|Pemeriksaan Premis)\s*[:\-]\s*(.*)"], raw_data)
-if not markah_premis or markah_premis.strip() == "" or markah_premis.strip() == "-":
+markah_premis_raw = extract_field([r"(?:Markah Penilaian Risiko/Pemeriksaan Premis|Penilaian Risiko|Pemeriksaan Premis)\s*[:\-]\s*(.*)"], raw_data)
+
+# Pembersihan: Buang jika mengandungi 'Deskripsi' atau kosong
+if (not markah_premis_raw or 
+    markah_premis_raw.strip() == "" or 
+    markah_premis_raw.strip() == "-" or 
+    re.search(r"deskripsi", markah_premis_raw, re.IGNORECASE)):
     markah_premis = "Tidak Berkenaan"
+else:
+    markah_premis = markah_premis_raw
 
 # Deskripsi Kluster
 onset_indeks = extract_field([r"(?:Onset Kes Indeks)\s*[:\-]\s*(.*)"], raw_data)
@@ -76,13 +83,17 @@ umur = extract_field([r"(?:Julat Umur Kes|Julat Umur|Umur)\s*[:\-]\s*(.*)"], raw
 simptom = extract_field([r"(?:Simptom Utama|Simptom)\s*[:\-]\s*(.*)"], raw_data)
 punca = extract_field([r"(?:Punca Jangkitan|Punca)\s*[:\-]\s*(.*)"], raw_data)
 
-# --- Peraturan 2: Jenis Sampel (Tangkap Semua Sub-poin a, b, c, d...) ---
+# --- Peraturan 2: Jenis Sampel (Abaikan 'Sekiranya KRM') ---
 def extract_jenis_sampel(text):
     match = re.search(r"(?:Jenis Sampel Diambil dan Bilangan|Jenis Sampel)\s*[:\-]\s*(.*?)(?=\n[A-Z0-9\.\s]{3,}[:\-]|\Z)", text, re.IGNORECASE | re.DOTALL)
     if match:
         extracted = match.group(1).strip()
-        # Jika ada sub-poin baris baharu, gabungkan secara tersusun
-        lines = [line.strip() for line in extracted.split('\n') if line.strip()]
+        
+        # Potong jika mengandungi 'Sekiranya KRM' atau variasi KRM
+        krm_split = re.split(r"(?i)Sekiranya\s*KRM", extracted)
+        extracted_clean = krm_split[0].strip()
+        
+        lines = [line.strip() for line in extracted_clean.split('\n') if line.strip()]
         return "\n".join(lines)
     return ""
 
@@ -91,13 +102,13 @@ jenis_sampel = extract_jenis_sampel(raw_data)
 # --- Peraturan 3: Logik Keputusan Sampel ---
 text_keputusan = extract_field([r"(?:Keputusan Sampel)\s*[:\-]\s*(.*)"], raw_data)
 
-# Semak nilai angka kes pending
+# Semak angka kes pending
 try:
     pending_num = int(re.search(r"\d+", pending_val).group()) if re.search(r"\d+", pending_val) else 0
 except:
     pending_num = 0
 
-if text_keputusan:
+if text_keputusan and text_keputusan.strip().lower() not in ["", "-", "tidak berkenaan"]:
     keputusan_sampel = text_keputusan
 elif pending_num > 0:
     keputusan_sampel = "Pending"
@@ -138,7 +149,7 @@ with col2:
     val_umur = st.text_input("Julat Umur Kes", value=umur)
     val_simptom = st.text_area("Simptom Utama", value=simptom)
     val_punca = st.text_area("Punca Jangkitan", value=punca)
-    val_jenis_sampel = st.text_area("Jenis Sampel (Semua poin a,b,c...)", value=jenis_sampel, height=100)
+    val_jenis_sampel = st.text_area("Jenis Sampel (Tanpa KRM)", value=jenis_sampel, height=100)
     val_keputusan_sampel = st.text_input("Keputusan Sampel", value=keputusan_sampel)
 
     st.markdown("### D. Status Rawatan")
